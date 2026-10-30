@@ -5,12 +5,12 @@ plugins {
 
 android {
     namespace = "com.avip.solarcustomer"
-    compileSdk = 34
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.avip.solarcustomer"
         minSdk = 26
-        targetSdk = 34
+        targetSdk = 36  // Google Play: new apps and updates must target Android 16 (API 36)
         // GitHub Actions sets VERSION_CODE for every build, so each release is newer
         // than the last and the app can update itself.
         val buildNumber = (System.getenv("VERSION_CODE") ?: "1").toInt()
@@ -18,13 +18,35 @@ android {
         versionName = "1.0.$buildNumber"
     }
 
-    // Same signing key on every build, so new versions install over old ones.
     signingConfigs {
+        // Website (GitHub) build: same key on every build, so new versions install over old ones.
         create("avip") {
             storeFile = file("release.keystore")
             storePassword = "avipsc2026"
             keyAlias = "avipcustomer"
             keyPassword = "avipsc2026"
+        }
+        // Play Store build: the upload key. It is NOT in the repo; GitHub Actions writes it
+        // from the repository secrets (UPLOAD_KEYSTORE_B64 and the passwords).
+        create("upload") {
+            storeFile = file(System.getenv("UPLOAD_KEYSTORE") ?: "upload.keystore")
+            storePassword = System.getenv("UPLOAD_STORE_PASSWORD") ?: ""
+            keyAlias = System.getenv("UPLOAD_KEY_ALIAS") ?: "upload"
+            keyPassword = System.getenv("UPLOAD_KEY_PASSWORD") ?: System.getenv("UPLOAD_STORE_PASSWORD") ?: ""
+        }
+    }
+
+    // direct = APK from GitHub that updates itself (current customers).
+    // play   = App Bundle for Google Play; Play delivers the updates.
+    flavorDimensions += "store"
+    productFlavors {
+        create("direct") {
+            dimension = "store"
+            signingConfig = signingConfigs.getByName("avip")
+        }
+        create("play") {
+            dimension = "store"
+            signingConfig = signingConfigs.getByName("upload")
         }
     }
 
@@ -34,7 +56,6 @@ android {
         }
         getByName("release") {
             isMinifyEnabled = false
-            signingConfig = signingConfigs.getByName("avip")
         }
     }
 
@@ -62,4 +83,6 @@ dependencies {
     implementation("androidx.exifinterface:exifinterface:1.3.7")
     // checks for progress updates in the background and shows a notification
     implementation("androidx.work:work-runtime-ktx:2.9.1")
+    // Play build only: compulsory updates through Google Play (in-app update)
+    "playImplementation"("com.google.android.play:app-update:2.1.0")
 }

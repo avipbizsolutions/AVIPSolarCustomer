@@ -54,7 +54,7 @@ const TABS = {
     'System Type', 'Install Check Site ID', 'Sales Visit No.', 'Sales Executive', 'Sales Exec Mobile']
     .concat(STAGES.map(function (s) { return s.col; }))
     .concat(['Customer Action', 'Note to Customer', 'Referral Code', 'UPI ID', 'Invite Link',
-      'PIN Reset Requested', 'Last Seen', 'App Version', 'Added On']),
+      'PIN Reset Requested', 'Last Seen', 'App Version', 'Added On', 'Deletion Requested']),
   'Referrals': ['Referral ID', 'Received', 'Referrer Code', 'Referrer ID', 'Referrer Name', 'Referrer Mobile',
     'Friend Name', 'Friend Mobile', 'District', 'Address', 'Note', 'Status', 'Sales Executive', 'System (kW)',
     'Reward (₹)', 'Slab Working', 'Reward Locked On', 'Payout Status', 'UPI ID', 'UTR / Ref No.', 'Paid On',
@@ -75,6 +75,8 @@ const DEFAULT_SETTINGS = [
   ['support_whatsapp', '9288176289', 'WhatsApp button in the app and in the referral message'],
   ['app_link', DEFAULT_APP_LINK, 'Download link put in invite messages'],
   ['announcement', '', 'Shown on top of the home screen (offers, cleaning tips, weather alerts). Leave blank for none.'],
+  ['review_mobile', '', 'Google Play review login: mobile number of the demo customer row. Leave blank when not needed.'],
+  ['review_pin', '', 'Google Play review login: fixed 4-digit PIN for review_mobile (never asked to change).'],
   ['referral_terms', 'Reward installation ke baad UPI par milega. Ek mobile number ka referral sirf ek baar count hoga. AVIP ka faisla final hoga.', 'Shown under Refer & Earn'],
 ];
 
@@ -129,6 +131,7 @@ const HANDLERS = {
   ticketReopen: ticketReopen,
   doc: doc,
   upload: upload,
+  deleteAccount: deleteAccount,
 };
 // no script lock: they only read, or write single cells of the caller's own row
 const READ_ONLY = ['doc', 'home'];
@@ -469,7 +472,7 @@ function auth(d, allowTempPin) {
   const id = tok.split('.')[0];
   const c = rows('Customers').filter(function (x) { return clean(x['Customer ID']) === id; })[0];
   if (!c || !isActive(c) || tokenFor(c) !== tok) throw new Error('SESSION: Please login again.');
-  if (!allowTempPin && String(c['PIN']).charAt(0) !== '#') throw new Error('SESSION: Please set your own PIN first.');
+  if (!allowTempPin && String(c['PIN']).charAt(0) !== '#' && !isReview(c)) throw new Error('SESSION: Please set your own PIN first.');
   return c;
 }
 
@@ -485,6 +488,12 @@ function login(d) {
   if (fails >= 5) throw new Error('5 बार गलत PIN। 10 मिनट बाद फिर कोशिश करें।');
   const c = customersByMobile(mobile)[0];
   if (!c) throw new Error('यह number AVIP Solar में registered नहीं है। Office को call करें: ' + clean(settings()['support_phone']));
+  if (isReview(c)) {
+    // Google Play reviewers: fixed PIN from Settings, never asked to change it
+    if (pin !== clean(settings()['review_pin'])) { cache.put(failKey, String(fails + 1), 600); throw new Error('गलत PIN।'); }
+    cache.remove(failKey);
+    return { token: tokenFor(c), name: clean(c['Name']), mustSetPin: false };
+  }
   const stored = clean(c['PIN']);
   if (!stored) throw new Error('आपका PIN अभी बना नहीं है। Office से temporary PIN लें।');
   const ok = stored.charAt(0) === '#' ? stored === pinHash(mobile, pin) : stored === pin;
@@ -498,6 +507,7 @@ function login(d) {
 
 function setPin(d) {
   const c = auth(d, true);
+  if (isReview(c)) throw new Error('Demo account का PIN नहीं बदल सकते।');
   const pin = clean(d.newPin);
   if (!/^\d{4}$/.test(pin)) throw new Error('PIN 4 अंकों का होना चाहिए।');
   if (WEAK_PINS.indexOf(pin) >= 0) throw new Error('यह PIN बहुत आसान है। कोई दूसरा चुनें।');
@@ -516,6 +526,7 @@ function forgotPin(d) {
   if (cache.get(k)) return { message: 'Request पहले ही भेज दी गई है। Office जल्द ही WhatsApp पर नया PIN भेजेगा।' };
   const c = customersByMobile(mobile)[0];
   if (!c) throw new Error('यह number AVIP Solar में registered नहीं है।');
+  if (isReview(c)) return { message: 'Demo account: PIN Settings tab के review_pin में है।' };
   setFields('Customers', c._row, { 'PIN Reset Requested': now() });
   cache.put(k, '1', 3600);
   const s = settings();
@@ -523,6 +534,39 @@ function forgotPin(d) {
     clean(c['Name']) + ' (' + mobile + ', ' + clean(c['Customer ID']) + ') forgot the app PIN.\n' +
     'Type a new 4-digit PIN in the PIN cell of the Customers tab, then use AVIP → Sync now and send the Invite Link on WhatsApp.');
   return { message: 'Request भेज दी गई। Office WhatsApp पर नया temporary PIN भेजेगा।' };
+}
+
+/** The demo customer used by Google Play reviewers (Settings → review_mobile / review_pin). */
+function isReview(c) {
+  const s = settings();
+  const m = last10(s['review_mobile']);
+  return m.length === 10 && /^\d{4}$/.test(clean(s['review_pin'])) && last10(c['Mobile']) === m;
+}
+
+/**
+ * "Delete my account" in the app (required by Google Play). Switches off every
+ * row of this mobile number at once (Active = No, PIN cleared) and e-mails the
+ * office, who then deletes the customer's app data within 30 days.
+ */
+function deleteAccount(d) {
+  const c = auth(d, true);
+  if (isReview(c)) return { demo: true, message: 'Demo account delete नहीं होता। असली customer का account तुरंत बंद हो जाता है।' };
+  const t = table('Customers');
+  if (t.headers.indexOf('Deletion Requested') < 0) {
+    t.sh.getRange(1, t.sh.getLastColumn() + 1).setValue('Deletion Requested');
+  }
+  const mine = customersByMobile(c['Mobile']);
+  mine.forEach(function (x) {
+    setFields('Customers', x._row, { 'Active': 'No', 'PIN': '', 'Invite Link': '', 'Deletion Requested': now() });
+  });
+  const s = settings();
+  alertOffice(s, 'Account deletion request – ' + clean(c['Name']),
+    clean(c['Name']) + ' (' + last10(c['Mobile']) + ', ' + mine.map(function (x) { return clean(x['Customer ID']); }).join(', ') +
+    ') deleted their AVIP Solar app account from the app.\n' +
+    'The account is already switched off (Active = No). Within 30 days delete their app data: uploaded photos and documents ' +
+    '(Drive folder "' + FILE_ROOT + '"), their rows in Tickets and Documents, and their UPI ID. ' +
+    'Keep the Customers row (Active = No) so the sync does not add them again; warranty, subsidy and billing records stay as the law needs.');
+  return { message: 'आपका account बंद कर दिया गया है। आपकी app details 30 दिन में delete कर दी जाएँगी। सवाल हो तो call करें: ' + clean(s['support_phone']) };
 }
 
 // ------------------------------------------------------------------ home (everything the app shows)

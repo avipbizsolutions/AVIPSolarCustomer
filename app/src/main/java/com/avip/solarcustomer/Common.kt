@@ -165,6 +165,8 @@ fun Activity.screen(
             addView(bottom, lp())
         })
     }
+    (this as? androidx.appcompat.app.AppCompatActivity)
+        ?.edgeToEdge(Ui.BRAND_DARK, if (bottom != null) android.graphics.Color.WHITE else Ui.BG, lightNavIcons = true)
     setContentView(root)
     return body
 }

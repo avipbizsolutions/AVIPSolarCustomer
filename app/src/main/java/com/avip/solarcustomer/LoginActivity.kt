@@ -21,6 +21,7 @@ class LoginActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        edgeToEdge(Ui.BRAND, Ui.BG, lightNavIcons = true)
         if (Session.mustSetPin(this) && Session.token(this).isNotBlank()) showSetPin() else showLogin()
     }
 
@@ -85,6 +86,12 @@ class LoginActivity : AppCompatActivity() {
             gravity = Gravity.CENTER
             setPadding(0, dp(12), 0, dp(12))
             setOnClickListener { dial("9288176289") }
+        }, lp())
+        f.addView(text("Privacy Policy", 13f, Ui.MUTED) {
+            gravity = Gravity.CENTER
+            paintFlags = paintFlags or android.graphics.Paint.UNDERLINE_TEXT_FLAG
+            setPadding(0, dp(4), 0, dp(12))
+            setOnClickListener { openUrl(AppInfo.PRIVACY_URL) }
         }, lp())
     }
 

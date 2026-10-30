@@ -61,6 +61,7 @@ class MainActivity : AppCompatActivity() {
         tab = savedInstanceState?.getInt("tab") ?: intent.getIntExtra("tab", TAB_HOME)
         systemIndex = savedInstanceState?.getInt("system") ?: 0
 
+        edgeToEdge(Ui.BRAND_DARK, Color.WHITE, lightNavIcons = true)
         content = FrameLayout(this)
         nav = horizontal {
             setBackgroundColor(Color.WHITE)
@@ -395,17 +396,49 @@ class MainActivity : AppCompatActivity() {
     private fun account(h: Home) {
         AlertDialog.Builder(this)
             .setTitle(h.name)
-            .setMessage("Mobile: ${Fmt.mobile(h.mobile)}\nReferral code: ${h.code}\nApp version: ${Updater.currentVersionName(this)}")
+            .setMessage("Mobile: ${Fmt.mobile(h.mobile)}\nReferral code: ${h.code}\nApp version: ${AppInfo.currentVersionName(this)}")
             .setPositiveButton("OK", null)
             .setNegativeButton("Logout") { _, _ ->
-                confirm("Logout?", "दोबारा login के लिए mobile number और PIN लगेगा।", "Logout") {
-                    Watcher.cancel(this)
-                    Session.clear(this)
-                    startActivity(Intent(this, LoginActivity::class.java))
-                    finish()
+                confirm("Logout?", "दोबारा login के लिए mobile number और PIN लगेगा।", "Logout") { signOut() }
+            }
+            .setNeutralButton("Privacy") { _, _ -> privacy() }
+            .show()
+    }
+
+    private fun signOut() {
+        Watcher.cancel(this)
+        Session.clear(this)
+        Store.clear(this)
+        startActivity(Intent(this, LoginActivity::class.java))
+        finish()
+    }
+
+    /** Privacy policy and account deletion (Google Play requires both inside the app). */
+    private fun privacy() {
+        AlertDialog.Builder(this)
+            .setTitle("Privacy & Account")
+            .setItems(arrayOf("Privacy Policy पढ़ें", "मेरा account delete करें")) { _, which ->
+                if (which == 0) openUrl(AppInfo.PRIVACY_URL) else deleteAccount()
+            }
+            .setNegativeButton("Close", null)
+            .show()
+    }
+
+    private fun deleteAccount() {
+        confirm(
+            "Account delete करें?",
+            "आपका AVIP Solar app account तुरंत बंद हो जाएगा और आप login नहीं कर पाएँगे। " +
+                "आपकी app details, photos, tickets और referral details 30 दिन में delete कर दी जाएँगी। " +
+                "Warranty, subsidy और bill के records कानून के अनुसार AVIP के पास रहेंगे।\n\n" +
+                "बाकी referral reward भी बंद हो जाएगा।",
+            "Delete करें",
+        ) {
+            busy("Request भेज रहे हैं…", { Api.call(this, "deleteAccount") }) { o ->
+                message("Account delete", o.optString("message").ifBlank { "आपका account बंद कर दिया गया है।" }) {
+                    if (!o.optBoolean("demo")) signOut()
                 }
             }
-            .show()
+        }
     }
 
     // ------------------------------------------------------------------ Documents

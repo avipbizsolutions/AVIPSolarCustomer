@@ -1,4 +1,4 @@
-name: Build APK
+name: Build APK and Play bundle
 
 on:
   push:
@@ -7,6 +7,7 @@ on:
       - "config.json"
       - "apps-script/**"
       - "README.md"
+      - "docs/**"
   workflow_dispatch:
 
 permissions:
@@ -25,7 +26,7 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: "8.7"
+          gradle-version: "8.13"
 
       - name: Set version
         run: |
@@ -33,13 +34,32 @@ jobs:
           echo "VERSION_CODE=$code" >> "$GITHUB_ENV"
           echo "VERSION_NAME=1.0.$code" >> "$GITHUB_ENV"
 
-      - name: Build APK
+      - name: Build APK (website build)
         run: |
           set -o pipefail
-          gradle assembleRelease --console=plain 2>&1 | tee build.log
-          cp app/build/outputs/apk/release/app-release.apk "AVIP-Solar-${VERSION_NAME}.apk"
+          gradle assembleDirectRelease --console=plain 2>&1 | tee build.log
+          cp app/build/outputs/apk/direct/release/app-direct-release.apk "AVIP-Solar-${VERSION_NAME}.apk"
           # Fixed name, so .../releases/latest/download/AVIP-Solar.apk always gets the newest
-          cp app/build/outputs/apk/release/app-release.apk AVIP-Solar.apk
+          cp app/build/outputs/apk/direct/release/app-direct-release.apk AVIP-Solar.apk
+
+      # Google Play build: App Bundle signed with the upload key. The key is in the repo
+      # only encrypted; its password is the repository secret UPLOAD_STORE_PASSWORD.
+      - name: Build App Bundle (Google Play)
+        env:
+          UPLOAD_STORE_PASSWORD: ${{ secrets.UPLOAD_STORE_PASSWORD }}
+        run: |
+          set -o pipefail
+          if [ -z "$UPLOAD_STORE_PASSWORD" ]; then
+            # still check that the Play build compiles
+            gradle assemblePlayDebug --console=plain 2>&1 | tee -a build.log
+            echo "::warning title=No Play bundle::Add the repository secret UPLOAD_STORE_PASSWORD to build the Google Play bundle."
+            exit 0
+          fi
+          openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -in app/upload.keystore.enc -out "$RUNNER_TEMP/upload.keystore" -pass env:UPLOAD_STORE_PASSWORD
+          export UPLOAD_KEYSTORE="$RUNNER_TEMP/upload.keystore" UPLOAD_KEY_ALIAS=upload
+          gradle bundlePlayRelease --console=plain 2>&1 | tee -a build.log
+          cp app/build/outputs/bundle/playRelease/app-play-release.aab "AVIP-Solar-Play-${VERSION_NAME}.aab"
+          rm -f "$RUNNER_TEMP/upload.keystore"
 
       - name: Report build errors
         if: failure()
@@ -50,8 +70,11 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: AVIP-Solar-${{ env.VERSION_NAME }}-apk
-          path: AVIP-Solar-${{ env.VERSION_NAME }}.apk
+          name: AVIP-Solar-${{ env.VERSION_NAME }}
+          path: |
+            AVIP-Solar-${{ env.VERSION_NAME }}.apk
+            AVIP-Solar-Play-${{ env.VERSION_NAME }}.aab
+          if-no-files-found: warn
 
       # Phones check this release on launch and update themselves (compulsory).
       - name: Publish release
@@ -64,4 +87,6 @@ jobs:
           files: |
             AVIP-Solar-${{ env.VERSION_NAME }}.apk
             AVIP-Solar.apk
+            AVIP-Solar-Play-${{ env.VERSION_NAME }}.aab
+          fail_on_unmatched_files: false
           make_latest: true

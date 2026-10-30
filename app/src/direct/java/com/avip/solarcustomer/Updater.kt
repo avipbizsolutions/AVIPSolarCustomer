@@ -5,7 +5,6 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageInstaller
 import android.os.Build
-import androidx.core.content.pm.PackageInfoCompat
 import org.json.JSONObject
 import java.io.File
 import java.net.HttpURLConnection
@@ -26,14 +25,6 @@ object Updater {
     private const val LATEST_RELEASE =
         "https://api.github.com/repos/avipbizsolutions/AVIPSolarCustomer/releases/latest"
     const val ACTION_INSTALL_STATUS = "com.avip.solarcustomer.INSTALL_STATUS"
-
-    fun currentVersionCode(context: Context): Long =
-        PackageInfoCompat.getLongVersionCode(
-            context.packageManager.getPackageInfo(context.packageName, 0)
-        )
-
-    fun currentVersionName(context: Context): String =
-        context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: ""
 
     fun canInstall(context: Context): Boolean =
         context.packageManager.canRequestPackageInstalls()

@@ -74,7 +74,7 @@ object Api {
         if (!ep.startsWith("https://")) throw ApiException("AVIP server अभी तैयार नहीं है। थोड़ी देर बाद कोशिश करें।")
         body.put("key", SHARED_KEY).put("kind", kind)
         if (!body.has("token")) body.put("token", Session.token(c))
-        body.put("appVersion", Updater.currentVersionName(c))
+        body.put("appVersion", AppInfo.currentVersionName(c))
         val text = try {
             val conn = URL(ep).openConnection() as HttpURLConnection
             try {
