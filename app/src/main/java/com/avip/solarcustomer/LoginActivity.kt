@@ -27,13 +27,15 @@ class LoginActivity : AppCompatActivity() {
     private fun frame(title: String, subtitle: String): LinearLayout {
         val head = vertical {
             setPadding(dp(28), dp(48), dp(28), dp(30))
-            addView(horizontal {
-                addView(badge(R.drawable.ic_sun, Ui.SUN, 52, square = true))
-                addView(vertical {
-                    addView(text("AVIP Solar", 22f, Color.WHITE, bold = true))
-                    addView(text("Energy for Future", 13f, 0xFFCFE3D7.toInt()))
-                }, lp(WRAP, WRAP).margins(context, l = 12))
-            })
+            addView(android.widget.FrameLayout(context).apply {
+                background = rounded(Color.WHITE, dpf(18f))
+                setPadding(dp(14), dp(10), dp(14), dp(10))
+                addView(android.widget.ImageView(context).apply {
+                    setImageResource(R.drawable.avip_solar_logo_stacked)
+                    adjustViewBounds = true
+                    contentDescription = "AVIP Solar"
+                }, android.widget.FrameLayout.LayoutParams(WRAP, dp(76)))
+            }, lp(WRAP, WRAP))
             addView(text(title, 26f, Color.WHITE, bold = true) { setLineSpacing(0f, 1.1f) }, lp().margins(context, t = 22))
             addView(text(subtitle, 15f, 0xFFCFE3D7.toInt()) { setLineSpacing(0f, 1.15f) }, lp().margins(context, t = 6))
         }
