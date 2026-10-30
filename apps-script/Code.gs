@@ -154,6 +154,7 @@ function setup() {
       headers.forEach(function (h) {
         if (have.indexOf(h) < 0) {
           const c = sh.getLastColumn() + 1;
+          if (sh.getMaxColumns() < c) sh.insertColumnAfter(c - 1);
           sh.getRange(1, c).setValue(h).setFontWeight('bold').setBackground('#DDEFE4');
           have.push(h);
         }
@@ -553,7 +554,9 @@ function deleteAccount(d) {
   if (isReview(c)) return { demo: true, message: 'Demo account delete नहीं होता। असली customer का account तुरंत बंद हो जाता है।' };
   const t = table('Customers');
   if (t.headers.indexOf('Deletion Requested') < 0) {
-    t.sh.getRange(1, t.sh.getLastColumn() + 1).setValue('Deletion Requested');
+    const last = t.sh.getLastColumn();
+    if (t.sh.getMaxColumns && t.sh.getMaxColumns() <= last) t.sh.insertColumnAfter(last);
+    t.sh.getRange(1, last + 1).setValue('Deletion Requested');
   }
   const mine = customersByMobile(c['Mobile']);
   mine.forEach(function (x) {
