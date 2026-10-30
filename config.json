@@ -1,4 +1,4 @@
 {
-  "endpoint": "",
+  "endpoint": "https://script.google.com/macros/s/AKfycbxKy55d0JD1uOO_FXWzpouI0cMInFQh0zbMGIObxq2IAYLyVQOi2qIMU52wW75Fz-8W/exec",
   "note": "Put the Apps Script web app /exec URL in endpoint. Phones read this file on every launch, so no app update is needed when it changes."
 }
