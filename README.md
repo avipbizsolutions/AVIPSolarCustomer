@@ -11,7 +11,7 @@ https://github.com/avipbizsolutions/AVIPSolarCustomer/releases/latest/download/A
 | Tab | What it does |
 |---|---|
 | **Home** | Progress of their system in 8 stages: Site survey → Order confirm → PM Surya Ghar registration & DISCOM approval → Material dispatch → Installation complete → Net meter application → Inspection & commissioning → Subsidy credited. Dates, what is happening now, and **"आपका काम"** (something the customer must do, e.g. upload the electricity bill) with an upload button. Serial numbers of panels / inverter after dispatch. Their sales executive and the AVIP office with Call / WhatsApp. |
-| **Documents** | Quotation (from AVIP Solar Sales), Installation Report (from Install Check) and anything the office adds (warranty cards, invoice, commissioning report). The customer can send photos of documents too. |
+| **Documents** | Quotation (from AVIP Solar Sales), Installation Report (from AVIP Solar Installation) and anything the office adds (warranty cards, invoice, commissioning report). The customer can send photos of documents too. |
 | **Refer & Earn** | The reward slabs, their own referral code, "share on WhatsApp", a form to fill a friend's details, every referral with its status and reward, total paid and coming, and their UPI ID. |
 | **Support** | Raise a ticket (type of problem, details, inverter error code, up to 6 photos), see its status and visit date, confirm it is fixed with a 1–5 star rating, or reopen it. |
 
@@ -24,7 +24,7 @@ also **reads** (never changes) two existing sheets, so the office does not type 
 
 | From | Used for |
 |---|---|
-| **AVIP Solar Install Check – Database** | New customers (once a site is *Approved for Dispatch*), survey / order / dispatch / installation dates, serial numbers, GPS photo count, Installation Report PDF, the sales executive's number, referral status (order confirmed, installed) |
+| **AVIP Solar Install Check – Database** (AVIP Solar Installation app) | New customers (once a site is *Approved for Dispatch*), survey / order / dispatch / installation dates, serial numbers, GPS photo count, Installation Report PDF, the sales executive's number, referral status (order confirmed, installed) |
 | **AVIP Site Visits Log** (AVIP Solar Sales) | Quotation PDF, survey date, referral status (site visit done, converted) and the friend's kW |
 
 ### Tabs of the customer sheet

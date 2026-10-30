@@ -291,6 +291,12 @@ function day(v) {
   const s = clean(v);
   const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
   if (m) return Utilities.formatDate(new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])), TZ, 'd MMM yyyy');
+  // a date typed as text the Indian way: 31/10/2026, 31-10-2026 or 31.10.26
+  const n = s.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2}|\d{4})$/);
+  if (n && Number(n[2]) >= 1 && Number(n[2]) <= 12 && Number(n[1]) >= 1 && Number(n[1]) <= 31) {
+    const y = n[3].length === 2 ? 2000 + Number(n[3]) : Number(n[3]);
+    return Utilities.formatDate(new Date(y, Number(n[2]) - 1, Number(n[1])), TZ, 'd MMM yyyy');
+  }
   return s;
 }
 
@@ -595,8 +601,9 @@ function systemView(c, ic, sv) {
     auto.order = site['Verified On'] || (IC_ORDERED.indexOf(clean(site['Status'])) >= 0 ? site['Created On'] : '');
     const trips = ic.dispatch[sid] || [];
     if (trips.length) auto.dispatch = trips[0]['Dispatch Date'];
+    // installation counts as complete only while it is submitted or QC-approved (not during rework)
     const signs = ic.signoff[sid] || [];
-    if (signs.length) auto.install = signs[signs.length - 1]['Submitted On'];
+    if (signs.length && IC_INSTALLED.indexOf(clean(site['Status'])) >= 0) auto.install = signs[signs.length - 1]['Submitted On'];
   }
   if (!auto.survey && visit) auto.survey = visit['Visit Date'];
 
@@ -653,9 +660,10 @@ function documentsFor(mine, ic, sv) {
     const visit = visitFor(c, site, sv);
     if (visit && clean(visit['Quotation PDF'])) add(visit['Quotation PDF'], 'Quotation', visit['Visit Date']);
     if (site) {
-      (ic.signoff[clean(site['Site ID'])] || []).forEach(function (r) {
-        if (clean(r['Report PDF Link'])) add(r['Report PDF Link'], 'Installation Report', r['Submitted On']);
-      });
+      // only the latest report (a rework round makes a new one)
+      const withReport = (ic.signoff[clean(site['Site ID'])] || []).filter(function (r) { return clean(r['Report PDF Link']); });
+      const r = withReport[withReport.length - 1];
+      if (r) add(r['Report PDF Link'], 'Installation Report', r['Submitted On']);
     }
   });
   rows('Documents').forEach(function (r) {
